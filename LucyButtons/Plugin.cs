@@ -4,6 +4,7 @@ using GorillaNetworking;
 using Photon.Pun;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using Utilla;
 
@@ -14,12 +15,13 @@ namespace LucyButtons
     [BepInPlugin(PluginInfo.GUID, PluginInfo.Name, PluginInfo.Version)]
     public class Plugin : BaseUnityPlugin
     {
-        public static HalloweenGhostChaser Lucy;
+        public static List<HalloweenGhostChaser> Lucys = new List<HalloweenGhostChaser>();
 
         GameObject Buttona;
         List<GameObject> bButtons = new List<GameObject>();
         List<GameObject> rButtons = new List<GameObject>();
         GameObject thig;
+        GameObject HiddenLucy;
 
         bool inroom;
         void Start()
@@ -28,13 +30,17 @@ namespace LucyButtons
         }
         void OnGameInitialized(object sender, EventArgs e)
         {
-            Lucy = GameObject.Find("Environment Objects/PersistentObjects_Prefab/Halloween2023_PersistentObjects/Halloween Ghost/FloatingChaseSkeleton").GetComponent<HalloweenGhostChaser>();
+            HiddenLucy = GameObject.Find("Environment Objects/PersistentObjects_Prefab").transform.GetChild(5).gameObject;
+            Lucys = Resources.FindObjectsOfTypeAll<HalloweenGhostChaser>().ToList();
             thig = GameObject.Find("Player Objects/Local VRRig/Local Gorilla Player/rig/body/gorillachest");
             Buttona = new GameObject("LucyButtons");
-            foreach (Transform t in Lucy.spawnTransforms)
+            foreach (HalloweenGhostChaser lucy in Lucys)
             {
-                CreatebButtons(thig);
-                CreaterButtons(thig);
+                foreach (Transform t in lucy.spawnTransforms)
+                {
+                    CreatebButtons(thig);
+                    CreaterButtons(thig);
+                }
             }
             bButtons[0].transform.position = new Vector3(-46.507f, 5.464f, -42.671f);
             rButtons[0].transform.position = new Vector3(-46.507f, 5.564f, -42.671f);
@@ -51,24 +57,46 @@ namespace LucyButtons
             bButtons[4].transform.position = new Vector3(-57.52f, 6.356f, -155.853f);
             rButtons[4].transform.position = new Vector3(-57.52f, 6.456f, -155.853f);
         }
-
-        void Update()
+        bool ShowButtons()
         {
+            if (inroom)
+            {
+                foreach (HalloweenGhostChaser lucy in Lucys)
+                {
+                    if (lucy.currentState == HalloweenGhostChaser.ChaseState.Dormant)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
             if (!inroom)
             {
-                Buttona.SetActive(false);
+                return false;
             }
-            else if (PhotonNetwork.IsMasterClient)
+            return false;
+        }
+        void Update()
+        {
+            if (PhotonNetwork.IsMasterClient)
             {
-                if (Lucy.currentState == HalloweenGhostChaser.ChaseState.Dormant)
+                foreach (HalloweenGhostChaser lucy in Lucys)
                 {
-                    Buttona.SetActive(true);
-                }
-                else
-                {
-                    Buttona.SetActive(false);
+                    if (lucy.currentState == HalloweenGhostChaser.ChaseState.Dormant)
+                    {
+                        Buttona.SetActive(true);
+                    }
+                    else
+                    {
+                        Buttona.SetActive(false);
+                    }
                 }
             }
+            HiddenLucy.SetActive(inroom);
+            Buttona.SetActive(ShowButtons());
         }
         [ModdedGamemodeJoin]
         public void OnJoin(string gamemode)
@@ -91,7 +119,7 @@ namespace LucyButtons
                 GameObject button = GameObject.Instantiate(templateButton);
                 button.GetComponent<MeshFilter>().mesh = meshFilter.mesh;
                 button.GetComponent<Renderer>().material = new Material(GorillaComputer.instance.unpressedMaterial);
-                button.GetComponent<Renderer>().material.color = Lucy.defaultColor;
+                button.GetComponent<Renderer>().material.color = Color.cyan;
                 Destroy(cube);
                 button.transform.localScale = new Vector3(0.07f, 0.07f, 0.07f);
                 Destroy(cube);
@@ -116,7 +144,7 @@ namespace LucyButtons
                 GameObject button = GameObject.Instantiate(templateButton);
                 button.GetComponent<MeshFilter>().mesh = meshFilter.mesh;
                 button.GetComponent<Renderer>().material = new Material(GorillaComputer.instance.unpressedMaterial);
-                button.GetComponent<Renderer>().material.color = Lucy.summonedColor;
+                button.GetComponent<Renderer>().material.color = Color.red;
                 Destroy(cube);
                 button.transform.localScale = new Vector3(0.07f, 0.07f, 0.07f);
                 Destroy(cube);
@@ -152,8 +180,11 @@ namespace LucyButtons
         }
         void ButtonActivation()
         {
-            Plugin.Lucy.isSummoned = Summoned;
-            Plugin.Lucy.nextTimeToChasePlayer = 0.5f;
+            foreach (HalloweenGhostChaser lucy in Plugin.Lucys)
+            {
+                lucy.isSummoned = Summoned;
+                lucy.nextTimeToChasePlayer = 0.5f;
+            }
         }
     }
 }
